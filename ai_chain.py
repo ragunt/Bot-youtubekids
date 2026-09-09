@@ -1,10 +1,10 @@
 import os
 from googleapiclient.discovery import build
-from openai import OpenAI
+from google import genai
 
-# Memanggil kunci API dari brankas rahasia GitHub (Secrets)
+# Memanggil kunci API dari GitHub Secrets
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def search_youtube_trends():
     print("Mencari referensi video mewarnai anak...")
@@ -27,8 +27,8 @@ def search_youtube_trends():
     return video_titles
 
 def generate_new_concept(video_titles):
-    print("\nMeminta AI untuk meracik konsep baru...")
-    client = OpenAI(api_key=OPENAI_API_KEY)
+    print("\nMeminta Gemini AI untuk meracik konsep baru...")
+    client = genai.Client(api_key=GEMINI_API_KEY)
     
     prompt = f"""
     Berikut adalah judul video YouTube Kids yang sedang tren: {video_titles}.
@@ -38,15 +38,15 @@ def generate_new_concept(video_titles):
     3. Buat 1 prompt gambar bahasa Inggris untuk DALL-E berupa "black and white line art coloring page" dengan karakter tersebut.
     """
     
-    response = client.chat.completions.create(
-        model="gpt-4o-mini", 
-        messages=[{"role": "user", "content": prompt}]
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
     )
     
-    return response.choices[0].message.content
+    return response.text
 
 if __name__ == "__main__":
-    if not YOUTUBE_API_KEY or not OPENAI_API_KEY:
+    if not YOUTUBE_API_KEY or not GEMINI_API_KEY:
         print("Error: API Key belum dipasang di GitHub Secrets!")
         exit()
         
@@ -56,6 +56,5 @@ if __name__ == "__main__":
     print("\n=== HASIL GENERATE AI ===")
     print(new_content)
     
-    # Menyimpan hasil ke dalam file teks
     with open("hasil_konsep.txt", "w") as file:
         file.write(new_content)
