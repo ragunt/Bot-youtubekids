@@ -2,8 +2,8 @@ name: Jalankan AI Chaining YouTube Kids
 
 on:
   schedule:
-    - cron: '0 8 * * *' # Berjalan otomatis setiap jam 8 pagi setiap hari
-  workflow_dispatch: # Memungkinkan lo menekan tombol 'Run' manual kapan saja
+    - cron: '0 8 * * *'
+  workflow_dispatch:
 
 jobs:
   run-ai:
@@ -23,5 +23,5 @@ jobs:
       - name: Jalankan Script AI
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python ai_chain.py
