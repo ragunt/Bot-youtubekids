@@ -1,6 +1,10 @@
 import os
 import time
 import requests
+# --- TAMBAHAN PATCH PIL UNTUK MOVIEPY ---
+from PIL import Image
+Image.ANTIALIAS = Image.LANCZOS
+# --- AKHIR PATCH ---
 from googleapiclient.discovery import build
 from google import genai
 from google.genai.errors import ServerError
