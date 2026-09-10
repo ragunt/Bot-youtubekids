@@ -1,4 +1,5 @@
 import os
+import requests
 from googleapiclient.discovery import build
 from google import genai
 
@@ -12,7 +13,6 @@ def search_youtube_trends():
         return []
         
     youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
-    
     request = youtube.search().list(
         part="snippet",
         q="dinosaur coloring page kids OR pororo coloring kids",
@@ -21,18 +21,16 @@ def search_youtube_trends():
         maxResults=3
     )
     response = request.execute()
-    
     video_titles = [item['snippet']['title'] for item in response['items']]
     for title in video_titles:
         print(f"- Referensi ditemukan: {title}")
-        
     return video_titles
 
 def generate_new_concept(video_titles):
-    print("\nMeminta Gemini AI untuk meracik konsep baru...")
+    print("\nMeminta Gemini AI untuk meracik konsep & prompt gambar...")
     if not GEMINI_API_KEY:
         print("Error: GEMINI_API_KEY tidak ditemukan!")
-        return "API Key Gemini kosong."
+        return "API Key Gemini kosong.", ""
         
     client = genai.Client(api_key=GEMINI_API_KEY)
     
@@ -41,7 +39,7 @@ def generate_new_concept(video_titles):
     Tugasmu:
     1. Buat 1 judul video YouTube baru berbahasa Indonesia bertema mewarnai Dinosaurus atau pinguin.
     2. Buat deskripsi singkat videonya.
-    3. Buat 1 prompt gambar bahasa Inggris untuk DALL-E berupa "black and white line art coloring page" dengan karakter tersebut.
+    3. Buat 1 prompt gambar bahasa Inggris yang sangat detail khusus untuk generator gambar berupa "black and white line art coloring page, thick black outlines, cute character, white background, no shading". Berikan prompt gambarnya saja di bagian paling bawah setelah teks "PROMPT_IMG:".
     """
     
     response = client.models.generate_content(
@@ -49,21 +47,51 @@ def generate_new_concept(video_titles):
         contents=prompt,
     )
     
-    return response.text
+    text_result = response.text
+    
+    # Memisahkan prompt gambar dari teks konsep
+    img_prompt = "cute dinosaur coloring page for kids, black and white line art, thick outlines"
+    if "PROMPT_IMG:" in text_result:
+        parts = text_result.split("PROMPT_IMG:")
+        text_result = parts[0]
+        img_prompt = parts[1].strip()
+        
+    return text_result, img_prompt
+
+def generate_and_save_image(prompt_text):
+    print("\nSedang mendesain gambar mewarnai otomatis...")
+    # Menggunakan Pollinations.ai (Gratis & Tanpa API Key tambahan)
+    encoded_prompt = requests.utils.quote(prompt_text)
+    image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
+    
+    try:
+        response = requests.get(image_url)
+        if response.status_code == 200:
+            with open("hasil_coloring.png", "wb") as handler:
+                handler.write(response.content)
+            print("Gambar berhasil dibuat dan disimpan sebagai hasil_coloring.png!")
+        else:
+            print("Gagal mengunduh gambar.")
+    except Exception as e:
+        print(f"Error saat membuat gambar: {e}")
 
 if __name__ == "__main__":
     if not YOUTUBE_API_KEY or not GEMINI_API_KEY:
-        print("Error: Salah satu atau kedua API Key belum dipasang di GitHub Secrets!")
+        print("Error: API Key belum lengkap di GitHub Secrets!")
         exit(1)
         
     trends = search_youtube_trends()
     if trends:
-        new_content = generate_new_concept(trends)
+        new_content, img_prompt = generate_new_concept(trends)
         
-        print("\n=== HASIL GENERATE AI ===")
+        print("\n=== HASIL GENERATE KONTEN ===")
         print(new_content)
+        print(f"\nPrompt Gambar Terpilih: {img_prompt}")
+        
+        # Eksekusi pembuatan gambar
+        generate_and_save_image(img_prompt)
         
         with open("hasil_konsep.txt", "w") as file:
-            file.write(new_content)
+            file.write(new_content + f"\n\nPROMPT_IMG: {img_prompt}")
     else:
         print("Gagal mengambil tren YouTube.")
