@@ -2,8 +2,8 @@ name: Jalankan AI Chaining YouTube Kids
 
 on:
   schedule:
-    - cron: '0 8 * * *'
-  workflow_dispatch:
+    - cron: '0 8 * * *' # Jalankan setiap jam 08:00 UTC
+  workflow_dispatch: # Tombol manual di tab Actions
 
 jobs:
   run-ai:
@@ -17,9 +17,13 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Kebutuhan Sistem
-        run: pip install -r requirements.txt
-
+      - name: Install Kebutuhan Sistem (Dependencies)
+        run: |
+          # Menginstal semua kebutuhan dari requirements.txt
+          pip install -r requirements.txt
+          # Menginstal moviepy secara spesifik (cara paksa jika cache bermasalah)
+          pip install moviepy
+          
       - name: Jalankan Script AI
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
