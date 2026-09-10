@@ -1,6 +1,4 @@
-google-api-python-client
 google-genai
+google-api-python-client
 requests
-moviepy==1.0.3
-opencv-python
-numpy
+fal-client
