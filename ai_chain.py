@@ -1,22 +1,17 @@
 import os
 import time
 import requests
-# --- PATCH PIL UNTUK MOVIEPY ---
-from PIL import Image
-Image.ANTIALIAS = Image.LANCZOS
-# --- AKHIR PATCH ---
-import cv2
-import numpy as np
+import fal_client
 from googleapiclient.discovery import build
 from google import genai
 from google.genai.errors import ServerError
-from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+FAL_KEY = os.getenv("FAL_KEY")  # API Key dari fal.ai yang disimpan di GitHub Secrets
 
 def search_youtube_trends():
-    print("Mencari referensi tren kartun anak...")
+    print("🔍 [1/3] Mencari tren video mewarnai anak di YouTube...")
     if not YOUTUBE_API_KEY:
         print("Error: YOUTUBE_API_KEY tidak ditemukan!")
         return []
@@ -24,7 +19,7 @@ def search_youtube_trends():
     youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
     request = youtube.search().list(
         part="snippet",
-        q="kids cartoon animation dinosaur OR cute toddler story video",
+        q="kids coloring page animation cute character",
         type="video",
         order="viewCount",
         maxResults=3
@@ -32,11 +27,11 @@ def search_youtube_trends():
     response = request.execute()
     video_titles = [item['snippet']['title'] for item in response['items']]
     for title in video_titles:
-        print(f"- Referensi ditemukan: {title}")
+        print(f"   - Tren: {title}")
     return video_titles
 
-def generate_cartoon_script(video_titles):
-    print("\nMeminta Gemini AI untuk merancang episode kartun anak harian...")
+def generate_coloring_prompt(video_titles):
+    print("\n✍️ [2/3] Gemini AI merancang naskah & prompt video mewarnai...")
     if not GEMINI_API_KEY:
         print("Error: API Key Gemini kosong.")
         return "API Key Gemini kosong.", ""
@@ -44,11 +39,11 @@ def generate_cartoon_script(video_titles):
     client = genai.Client(api_key=GEMINI_API_KEY)
     
     prompt = f"""
-    Berdasarkan tren YouTube Kids ini: {video_titles}.
+    Berdasarkan tren YouTube ini: {video_titles}.
     Tugasmu:
-    1. Buat 1 judul episode kartun anak berbahasa Indonesia yang menarik dan ramah anak.
-    2. Buat alur cerita singkat (skrip episode harian).
-    3. Buat 1 prompt visual gambar animasi 3D gaya Pixar yang sangat hidup, ceria, dan penuh warna untuk adegan utama (dalam bahasa Inggris). Berikan promptnya di baris paling bawah setelah teks "PROMPT_IMG:".
+    1. Buat judul video YouTube Kids tentang proses mewarnai 1 karakter lucu berdurasikan 1 menit (berbahasa Indonesia).
+    2. Buat skrip per adegan (Scene 1 sampai 4) proses mewarnai karakter tersebut secara interaktif.
+    3. Tuliskan 1 prompt visual AI video generator (dalam bahasa Inggris, gaya 3D Pixar, karakter lucu sedang diwarnai dengan sapuan warna cerah, cinematic motion) persis di baris terbawah setelah teks "PROMPT_VIDEO:".
     """
     
     max_retries = 3
@@ -61,92 +56,96 @@ def generate_cartoon_script(video_titles):
             break
         except ServerError as e:
             if attempt < max_retries - 1:
-                print(f"Server Gemini sibuk (503), mencoba ulang dalam 5 detik... (Percobaan ke-{attempt+1})")
+                print(f"   - Server sibuk (503), mencoba ulang... ({attempt+1})")
                 time.sleep(5)
             else:
                 raise e
-    
+                
     text_result = response.text
-    img_prompt = "3D Pixar style animated cute baby dinosaur having a happy adventure in a colorful magical forest, vibrant lighting, cinematic"
-    if "PROMPT_IMG:" in text_result:
-        parts = text_result.split("PROMPT_IMG:")
-        text_result = parts[0]
-        img_prompt = parts[1].strip()
-        
-    return text_result, img_prompt
-
-def generate_and_save_visuals(prompt_text):
-    print("\nSedang mendesain visual utama episode kartun...")
+    video_prompt = "3D Pixar style cute character coloring page coming to life with vibrant colors, smooth cinematic motion"
     
-    encoded_prompt = requests.utils.quote(prompt_text + ", high quality, 4k resolution")
-    image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&nologo=true&seed=100"
+    if "PROMPT_VIDEO:" in text_result:
+        parts = text_result.split("PROMPT_VIDEO:")
+        text_result = parts[0]
+        video_prompt = parts[1].strip()
+        
+    return text_result, video_prompt
+
+def generate_and_download_video_via_fal(video_prompt):
+    print("\n🎬 [3/3] Mengirim prompt ke Fal.ai Video API & mengunduh video...")
+    if not FAL_KEY:
+        print("Error: FAL_KEY tidak ditemukan di environment/secrets!")
+        return False
+        
+    # Mengatur env key untuk fal_client
+    os.environ["FAL_KEY"] = FAL_KEY
     
     try:
-        response = requests.get(image_url)
-        if response.status_code == 200:
-            with open("episode_scene.png", "wb") as f:
-                f.write(response.content)
-            print("Visual episode berhasil dibuat!")
-            return True
+        # Menggunakan endpoint model video stabil di fal.ai (misalnya Kling / Text-to-Video)
+        print(f"   - Prompt dikirim: {video_prompt}")
+        
+        handler = fal_client.submit(
+            "fal-ai/kling-video/v1.6/standard/text-to-video",
+            arguments={
+                "prompt": video_prompt,
+                "duration": "5",
+                "aspect_ratio": "9:16"
+            }
+        )
+        
+        print("   - Sedang merender video di cloud Fal.ai (proses antrean)...")
+        result = handler.get()
+        
+        if result and "video" in result and "url" in result["video"]:
+            video_url = result["video"]["url"]
+            print(f"   - Video berhasil dirender! Mengunduh dari: {video_url}")
+            
+            # Download file video ke local/GitHub
+            video_response = requests.get(video_url)
+            if video_response.status_code == 200:
+                output_video_filename = "hasil_video_mentah.mp4"
+                with open(output_video_filename, "wb") as f:
+                    f.write(video_response.content)
+                print(f"   - Sukses! Video tersimpan sebagai '{output_video_filename}'")
+                return True
+            else:
+                print("   - Gagal mengunduh file video dari URL hasil.")
+                return False
         else:
-            print("Gagal mengunduh visual.")
+            print("   - Format hasil respons Fal.ai tidak sesuai.")
             return False
+            
     except Exception as e:
-        print(f"Error saat mengunduh visual: {e}")
+        print(f"   - Error saat komunikasi dengan Fal.ai API: {e}")
         return False
 
-def create_episode_video():
-    print("\nMerakit video episode kartun sinematik dengan efek gerak dinamis...")
-    if not os.path.exists("episode_scene.png"):
-        print("File visual tidak ditemukan.")
-        return
-        
-    try:
-        def cinematic_zoom(get_frame, t):
-            img = get_frame(t)
-            h, w, _ = img.shape
-            zoom_factor = 1.0 + (0.10 * (t / 15.0))
-            new_h, new_w = int(h * zoom_factor), int(w * zoom_factor)
-            resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
-            
-            start_y = (new_h - h) // 2
-            start_x = (new_w - w) // 2
-            return resized[start_y:start_y+h, start_x:start_x+w]
-
-        clip1 = ImageClip("episode_scene.png").set_duration(15).fl(cinematic_zoom)
-        clip2 = ImageClip("episode_scene.png").set_duration(15).fl(cinematic_zoom).crossfadein(2)
-        
-        final_video = concatenate_videoclips([clip1, clip2], method="compose")
-        
-        if os.path.exists("musik_anak.mp3"):
-            print("Menyematkan musik latar anak-anak...")
-            audio = AudioFileClip("musik_anak.mp3").subclip(0, 30)
-            final_video = final_video.set_audio(audio)
-            
-        output_video = "hasil_video_youtube.mp4"
-        final_video.write_videofile(output_video, fps=24, codec="libx264", audio=os.path.exists("musik_anak.mp3"))
-        print(f"Episode kartun harian berhasil dirender sebagai {output_video}!")
-    except Exception as e:
-        print(f"Error saat merakit video episode: {e}")
-
 if __name__ == "__main__":
-    if not YOUTUBE_API_KEY or not GEMINI_API_KEY:
-        print("Error: API Key belum lengkap di GitHub Secrets!")
+    if not YOUTUBE_API_KEY or not GEMINI_API_KEY or not FAL_KEY:
+        print("Error: Pastikan YOUTUBE_API_KEY, GEMINI_API_KEY, dan FAL_KEY sudah diatur di GitHub Secrets!")
         exit(1)
         
+    print("==================================================")
+    print("   ATURAN 1: OTOMATISASI PROMPT & FAL.AI VIDEO")
+    print("==================================================")
+    
     trends = search_youtube_trends()
     if trends:
-        cartoon_script, img_prompt = generate_cartoon_script(trends)
+        script_text, prompt_vid = generate_coloring_prompt(trends)
         
-        print("\n=== SKRIP EPISODE & PROMPT HARIAN ===")
-        print(cartoon_script)
+        print("\n📄 Naskah Cerita:")
+        print(script_text)
         
-        visual_success = generate_and_save_visuals(img_prompt)
-        
-        if visual_success:
-            create_episode_video()
+        # Simpan naskah teks
+        with open("naskah_cerita.txt", "w", encoding="utf-8") as f:
+            f.write(script_text)
             
-        with open("hasil_konsep.txt", "w") as file:
-            file.write(cartoon_script + f"\n\nPROMPT_IMG: {img_prompt}")
+        # Eksekusi Aturan 1: Kirim prompt ke Fal.ai dan download videonya
+        video_success = generate_and_download_video_via_fal(prompt_vid)
+        
+        if video_success:
+            print("\n✅ Aturan 1 Selesai! Video mentah berhasil didownload.")
+        else:
+            print("\n⚠️ Aturan 1 menemui kendala pada proses render video.")
+        print("==================================================")
     else:
-        print("Gagal mengambil tren YouTube.")
+        print("❌ Gagal mengambil tren YouTube.")
