@@ -4,7 +4,7 @@ import requests
 from googleapiclient.discovery import build
 from google import genai
 from google.genai.errors import ServerError
-from moviepy.editor import ImageClip, TextClip, CompositeVideoClip
+from moviepy.editor import ImageClip
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -96,12 +96,9 @@ def create_video_from_image():
         return
         
     try:
-        # Membuat video berdurasi 5 detik dari gambar hasil coloring
         clip = ImageClip("hasil_coloring.png").set_duration(5)
-        # Menetapkan ukuran resolusi video vertikal (cocok untuk YouTube Shorts / TikTok)
         clip = clip.resize(width=720, height=1280)
         
-        # Render video ke format MP4
         output_video = "hasil_video_youtube.mp4"
         clip.write_videofile(output_video, fps=24, codec="libx264", audio=False)
         print(f"Video berhasil dibuat dan disimpan sebagai {output_video}!")
@@ -121,10 +118,8 @@ if __name__ == "__main__":
         print(new_content)
         print(f"\nPrompt Gambar Terpilih: {img_prompt}")
         
-        # 1. Buat Gambar
         image_success = generate_and_save_image(img_prompt)
         
-        # 2. Rangkai Menjadi Video Jika Gambar Berhasil Dibuat
         if image_success:
             create_video_from_image()
         
