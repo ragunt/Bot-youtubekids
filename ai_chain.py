@@ -1,7 +1,9 @@
 import os
+import time
 import requests
 from googleapiclient.discovery import build
 from google import genai
+from google.genai.errors import ServerError
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -42,14 +44,24 @@ def generate_new_concept(video_titles):
     3. Buat 1 prompt gambar bahasa Inggris yang sangat detail khusus untuk generator gambar berupa "black and white line art coloring page, thick black outlines, cute character, white background, no shading". Berikan prompt gambarnya saja di bagian paling bawah setelah teks "PROMPT_IMG:".
     """
     
-    response = client.models.generate_content(
-        model="gemini-3.5-flash",
-        contents=prompt,
-    )
+    # Mencoba ulang otomatis jika server sedang sibuk (Error 503)
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.5-flash",
+                contents=prompt,
+            )
+            break
+        except ServerError as e:
+            if attempt < max_retries - 1:
+                print(f"Server Gemini sibuk (503), mencoba ulang dalam 5 detik... (Percobaan ke-{attempt+1})")
+                time.sleep(5)
+            else:
+                raise e
     
     text_result = response.text
     
-    # Memisahkan prompt gambar dari teks konsep
     img_prompt = "cute dinosaur coloring page for kids, black and white line art, thick outlines"
     if "PROMPT_IMG:" in text_result:
         parts = text_result.split("PROMPT_IMG:")
@@ -60,7 +72,6 @@ def generate_new_concept(video_titles):
 
 def generate_and_save_image(prompt_text):
     print("\nSedang mendesain gambar mewarnai otomatis...")
-    # Menggunakan Pollinations.ai (Gratis & Tanpa API Key tambahan)
     encoded_prompt = requests.utils.quote(prompt_text)
     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
     
@@ -88,7 +99,6 @@ if __name__ == "__main__":
         print(new_content)
         print(f"\nPrompt Gambar Terpilih: {img_prompt}")
         
-        # Eksekusi pembuatan gambar
         generate_and_save_image(img_prompt)
         
         with open("hasil_konsep.txt", "w") as file:
