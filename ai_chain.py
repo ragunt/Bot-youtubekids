@@ -102,7 +102,6 @@ def create_episode_video():
         return
         
     try:
-        # Efek pergerakan kamera sinematik (Zoom-in & Pan halus ala film animasi)
         def cinematic_zoom(get_frame, t):
             img = get_frame(t)
             h, w, _ = img.shape
@@ -114,20 +113,18 @@ def create_episode_video():
             start_x = (new_w - w) // 2
             return resized[start_y:start_y+h, start_x:start_x+w]
 
-        # Merakit klip berdurasi stabil dan aman untuk sistem harian
         clip1 = ImageClip("episode_scene.png").set_duration(15).fl(cinematic_zoom)
         clip2 = ImageClip("episode_scene.png").set_duration(15).fl(cinematic_zoom).crossfadein(2)
         
         final_video = concatenate_videoclips([clip1, clip2], method="compose")
         
-        # Pengecekan otomatis file musik latar jika lo ingin menyertakannya
         if os.path.exists("musik_anak.mp3"):
             print("Menyematkan musik latar anak-anak...")
             audio = AudioFileClip("musik_anak.mp3").subclip(0, 30)
             final_video = final_video.set_audio(audio)
             
         output_video = "hasil_video_youtube.mp4"
-        final_video.write_videofile(output_video, fps=24, codec="libx264", audiobar=True if os.path.exists("musik_anak.mp3") else False)
+        final_video.write_videofile(output_video, fps=24, codec="libx264", audio=os.path.exists("musik_anak.mp3"))
         print(f"Episode kartun harian berhasil dirender sebagai {output_video}!")
     except Exception as e:
         print(f"Error saat merakit video episode: {e}")
