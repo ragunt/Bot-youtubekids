@@ -4,6 +4,7 @@ import requests
 from googleapiclient.discovery import build
 from google import genai
 from google.genai.errors import ServerError
+from moviepy.editor import ImageClip, TextClip, CompositeVideoClip
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -44,7 +45,6 @@ def generate_new_concept(video_titles):
     3. Buat 1 prompt gambar bahasa Inggris yang sangat detail khusus untuk generator gambar berupa "black and white line art coloring page, thick black outlines, cute character, white background, no shading". Berikan prompt gambarnya saja di bagian paling bawah setelah teks "PROMPT_IMG:".
     """
     
-    # Mencoba ulang otomatis jika server sedang sibuk (Error 503)
     max_retries = 3
     for attempt in range(max_retries):
         try:
@@ -81,10 +81,32 @@ def generate_and_save_image(prompt_text):
             with open("hasil_coloring.png", "wb") as handler:
                 handler.write(response.content)
             print("Gambar berhasil dibuat dan disimpan sebagai hasil_coloring.png!")
+            return True
         else:
             print("Gagal mengunduh gambar.")
+            return False
     except Exception as e:
         print(f"Error saat membuat gambar: {e}")
+        return False
+
+def create_video_from_image():
+    print("\nMerakit video otomatis dari gambar...")
+    if not os.path.exists("hasil_coloring.png"):
+        print("File gambar tidak ditemukan, batal membuat video.")
+        return
+        
+    try:
+        # Membuat video berdurasi 5 detik dari gambar hasil coloring
+        clip = ImageClip("hasil_coloring.png").set_duration(5)
+        # Menetapkan ukuran resolusi video vertikal (cocok untuk YouTube Shorts / TikTok)
+        clip = clip.resize(width=720, height=1280)
+        
+        # Render video ke format MP4
+        output_video = "hasil_video_youtube.mp4"
+        clip.write_videofile(output_video, fps=24, codec="libx264", audio=False)
+        print(f"Video berhasil dibuat dan disimpan sebagai {output_video}!")
+    except Exception as e:
+        print(f"Error saat merakit video: {e}")
 
 if __name__ == "__main__":
     if not YOUTUBE_API_KEY or not GEMINI_API_KEY:
@@ -99,7 +121,12 @@ if __name__ == "__main__":
         print(new_content)
         print(f"\nPrompt Gambar Terpilih: {img_prompt}")
         
-        generate_and_save_image(img_prompt)
+        # 1. Buat Gambar
+        image_success = generate_and_save_image(img_prompt)
+        
+        # 2. Rangkai Menjadi Video Jika Gambar Berhasil Dibuat
+        if image_success:
+            create_video_from_image()
         
         with open("hasil_konsep.txt", "w") as file:
             file.write(new_content + f"\n\nPROMPT_IMG: {img_prompt}")
