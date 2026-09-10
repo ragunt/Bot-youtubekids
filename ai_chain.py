@@ -2,15 +2,17 @@ import os
 from googleapiclient.discovery import build
 from google import genai
 
-# Memanggil kunci API dari GitHub Secrets
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def search_youtube_trends():
     print("Mencari referensi video mewarnai anak...")
+    if not YOUTUBE_API_KEY:
+        print("Error: YOUTUBE_API_KEY tidak ditemukan!")
+        return []
+        
     youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
     
-    # Riset otomatis untuk tema Dinosaurus atau kartun pinguin (Pororo dsb)
     request = youtube.search().list(
         part="snippet",
         q="dinosaur coloring page kids OR pororo coloring kids",
@@ -28,6 +30,10 @@ def search_youtube_trends():
 
 def generate_new_concept(video_titles):
     print("\nMeminta Gemini AI untuk meracik konsep baru...")
+    if not GEMINI_API_KEY:
+        print("Error: GEMINI_API_KEY tidak ditemukan!")
+        return "API Key Gemini kosong."
+        
     client = genai.Client(api_key=GEMINI_API_KEY)
     
     prompt = f"""
@@ -47,14 +53,17 @@ def generate_new_concept(video_titles):
 
 if __name__ == "__main__":
     if not YOUTUBE_API_KEY or not GEMINI_API_KEY:
-        print("Error: API Key belum dipasang di GitHub Secrets!")
-        exit()
+        print("Error: Salah satu atau kedua API Key belum dipasang di GitHub Secrets!")
+        exit(1)
         
     trends = search_youtube_trends()
-    new_content = generate_new_concept(trends)
-    
-    print("\n=== HASIL GENERATE AI ===")
-    print(new_content)
-    
-    with open("hasil_konsep.txt", "w") as file:
-        file.write(new_content)
+    if trends:
+        new_content = generate_new_concept(trends)
+        
+        print("\n=== HASIL GENERATE AI ===")
+        print(new_content)
+        
+        with open("hasil_konsep.txt", "w") as file:
+            file.write(new_content)
+    else:
+        print("Gagal mengambil tren YouTube.")
