@@ -10,7 +10,7 @@ import numpy as np
 from googleapiclient.discovery import build
 from google import genai
 from google.genai.errors import ServerError
-from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips
+from moviepy.editor import ImageClip, concatenate_videoclips
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -46,7 +46,7 @@ def generate_new_concept(video_titles):
     prompt = f"""
     Berikut adalah judul video YouTube Kids yang sedang tren: {video_titles}.
     Tugasmu:
-    1. Buat 1 judul video YouTube baru berbahasa Indonesia bertema mewarnai Dinosaurus atau pinguin (singkat & menarik).
+    1. Buat 1 judul video YouTube baru berbahasa Indonesia bertema mewarnai Dinosaurus atau pinguin.
     2. Buat deskripsi singkat videonya.
     3. Buat 1 prompt gambar bahasa Inggris khusus untuk line art: "black and white line art coloring page, thick black outlines, cute character, white background, no shading". Berikan promptnya di baris paling bawah setelah teks "PROMPT_IMG:".
     """
@@ -78,11 +78,9 @@ def generate_new_concept(video_titles):
 def generate_and_save_images(prompt_text):
     print("\nSedang mendesain gambar line art & versi warnanya...")
     
-    # 1. Unduh Line Art (Hitam Putih)
     encoded_prompt_bw = requests.utils.quote(prompt_text)
     url_bw = f"https://image.pollinations.ai/prompt/{encoded_prompt_bw}?width=720&height=1280&nologo=true"
     
-    # 2. Unduh Versi Berwarna (Full Color Cartoon)
     prompt_color = prompt_text.replace("black and white line art", "vibrant colorful digital illustration, cute cartoon style, kids animation background")
     encoded_prompt_color = requests.utils.quote(prompt_color)
     url_color = f"https://image.pollinations.ai/prompt/{encoded_prompt_color}?width=720&height=1280&nologo=true"
@@ -112,17 +110,10 @@ def create_animated_coloring_video():
         return
         
     try:
-        # Durasi total video 10 detik
-        # Bagian 1: Menampilkan Line Art (Hitam Putih) selama 3 detik
         clip_bw = ImageClip("line_art.png").set_duration(3)
-        
-        # Bagian 2: Efek Transisi Masuk ke Full Color secara perlahan (Fade-in mewarnai) selama 4 detik
         clip_color = ImageClip("full_color.png").set_duration(4).crossfadein(2)
-        
-        # Bagian 3: Hasil Akhir Berwarna selama 3 detik
         clip_final = ImageClip("full_color.png").set_duration(3)
         
-        # Gabungkan klip menjadi satu video utuh
         final_video = concatenate_videoclips([clip_bw, clip_color, clip_final], method="compose")
         
         output_video = "hasil_video_youtube.mp4"
@@ -140,7 +131,7 @@ if __name__ == "__main__":
     if trends:
         new_content, img_prompt = generate_new_concept(trends)
         
-        print("\n=== HASIL GENERATE KONTEN ==="")
+        print("\n=== HASIL GENERATE KONTEN ===")
         print(new_content)
         
         image_success = generate_and_save_images(img_prompt)
