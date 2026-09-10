@@ -1,42 +1,21 @@
-name: Jalankan AI Chaining YouTube Kids
-
-on:
-  schedule:
-    - cron: '0 8 * * *'
-  workflow_dispatch:
-
 jobs:
   run-ai:
     runs-on: ubuntu-latest
     steps:
-      - name: Tarik Kode dari Repository
-        uses: actions/checkout@v4
+      - name: Tarik Kode dan Repository
+        uses: actions/checkout@v3
 
       - name: Siapkan Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
       - name: Install Kebutuhan Sistem (Dependencies)
-        run: |
-          pip install -r requirements.txt
-          pip install moviepy
-          # Patch tambahan untuk PIL jika masih error
-          python -c "from PIL import Image; Image.ANTIALIAS = Image.LANCZOS"
-          
+        run: pip install -r requirements.txt
+
       - name: Jalankan Script AI
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FAL_KEY: ${{ secrets.FAL_KEY }}
         run: python ai_chain.py
-
-      # --- TAMBAHKAN BAGIAN INI DI BAWAH ---
-      - name: Simpan Hasil Video & Gambar sebagai Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Hasil_Konten_YouTube_Kids
-          path: |
-            hasil_video_youtube.mp4
-            hasil_coloring.png
-            hasil_konsep.txt
-      # --- AKHIR PENAMBAHAN ---
