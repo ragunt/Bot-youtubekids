@@ -1,3 +1,10 @@
+name: Jalankan AI Chaining YouTube Kids
+
+on:
+  workflow_dispatch: # Tombol Play manual di tab Actions
+  schedule:
+    - cron: '0 0 * * *' # Berjalan otomatis setiap hari (opsional)
+
 jobs:
   run-ai:
     runs-on: ubuntu-latest
@@ -19,3 +26,11 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FAL_KEY: ${{ secrets.FAL_KEY }}
         run: python ai_chain.py
+
+      - name: Simpan Hasil Video & File sebagai Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: hasil-produksi-kartun
+          path: |
+            naskah_cerita.txt
+            hasil_video_mentah.mp4
